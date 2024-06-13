@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+   The Project Object Model (POM) build file for ocr4all app Calamari service providers project.
+
+   Author: Herbert Baier (herbert.baier@uni-wuerzburg.de)
+   Date: 29.03.2022
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>3.2.3</version>
+		<relativePath/> <!-- lookup parent from repository -->
+	</parent>
+	<groupId>de.uni-wuerzburg.zpd</groupId>
+	<artifactId>ocr4all-app-calamari-spi</artifactId>
+	<packaging>jar</packaging>
+	<version>1.0-SNAPSHOT</version>
+	<name>ocr4all app Calamari spi</name>
+	<url>http://www.ocr4all.org</url>
+	<description>ocr4all application Calamari service providers</description>
+
+	<properties>
+		<java.version>17</java.version>
+		
+		<de.uni-wuerzburg.zpd.ocr4all.version>1.0-SNAPSHOT</de.uni-wuerzburg.zpd.ocr4all.version>
+	</properties>
+
+	<dependencies>		
+		<!-- The dependency is excluded from end JAR using the spring boot maven plugin configuration -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+		
+		<!-- ocr4all application service provider interface -->
+		<dependency>
+			<groupId>de.uni-wuerzburg.zpd</groupId>
+			<artifactId>ocr4all-app-spi</artifactId>
+			<version>${de.uni-wuerzburg.zpd.ocr4all.version}</version>
+			<scope>provided</scope>
+		</dependency>
+		
+		<!-- ocr4all application communication -->
+		<dependency>
+			<groupId>de.uni-wuerzburg.zpd</groupId>
+			<artifactId>ocr4all-app-communication</artifactId>
+			<version>${de.uni-wuerzburg.zpd.ocr4all.version}</version>
+			<scope>provided</scope>
+		</dependency>
+		
+		<!-- ocr4all application Calamari communication -->
+		<dependency>
+			<groupId>de.uni-wuerzburg.zpd</groupId>
+			<artifactId>ocr4all-app-calamari-communication</artifactId>
+			<version>${de.uni-wuerzburg.zpd.ocr4all.version}</version>
+		</dependency>
+	</dependencies>
+     
+    <build>
+		<plugins>
+<!--			<plugin>-->
+<!--				<groupId>org.springframework.boot</groupId>-->
+<!--				<artifactId>spring-boot-maven-plugin</artifactId>-->
+<!--				<configuration>-->
+<!--					<excludes>-->
+<!--						<exclude>-->
+<!--							<groupId>org.springframework.boot</groupId>-->
+<!--							<artifactId>spring-boot-starter-web</artifactId>-->
+<!--						</exclude>-->
+<!--					</excludes>-->
+<!--				</configuration>-->
+<!--			</plugin>-->
+			
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-source-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>attach-sources</id>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-javadoc-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>attach-javadocs</id>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>
