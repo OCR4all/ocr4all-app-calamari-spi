@@ -12,7 +12,7 @@ import java.util.Locale;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import de.uniwuerzburg.zpd.ocr4all.application.spi.core.ProcessServiceProvider;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.core.ProcessorServiceProvider;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.core.ServiceProviderCore;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.ConfigurationServiceProvider;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.util.SystemProcess;
@@ -201,7 +201,7 @@ public abstract class CalamariServiceProviderWorker extends ServiceProviderCore 
 		 * @return The process execution state.
 		 * @since 1.8
 		 */
-		public ProcessServiceProvider.Processor.State complete();
+		public ProcessorServiceProvider.Processor.State complete();
 	}
 
 }
