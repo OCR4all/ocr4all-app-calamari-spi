@@ -15,6 +15,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.core.ProcessorServiceProvider;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.core.ServiceProviderCore;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.ConfigurationServiceProvider;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.env.Target;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.model.Model;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.util.SystemProcess;
 
 /**
@@ -39,12 +41,20 @@ public abstract class CalamariServiceProviderWorker extends ServiceProviderCore 
 	}
 
 	/**
+	 * The logger.
+	 */
+	protected final org.slf4j.Logger logger;
+
+	/**
 	 * Default constructor for a calamari service provider worker.
 	 * 
+	 * @param logger The logger class.
 	 * @since 17
 	 */
-	public CalamariServiceProviderWorker() {
+	public CalamariServiceProviderWorker(Class<?> logger) {
 		super();
+
+		this.logger = org.slf4j.LoggerFactory.getLogger(logger);
 	}
 
 	/*
@@ -109,6 +119,19 @@ public abstract class CalamariServiceProviderWorker extends ServiceProviderCore 
 	 */
 	protected String getProcessorDescription() {
 		return ConfigurationServiceProvider.getValue(configuration, processorDescription());
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * de.uniwuerzburg.zpd.ocr4all.application.spi.core.ServiceProvider#getModel(de.
+	 * uniwuerzburg.zpd.ocr4all.application.spi.env.Target)
+	 */
+	@Override
+	public Model getModel(Target target) {
+		// TODO Auto-generated method stub
+		return super.getModel(target);
 	}
 
 	/**
