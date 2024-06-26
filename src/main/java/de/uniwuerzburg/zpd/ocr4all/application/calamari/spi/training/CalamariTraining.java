@@ -7,8 +7,6 @@
  */
 package de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.training;
 
-import java.util.List;
-
 import de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.CalamariServiceProviderWorker;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.TrainingServiceProvider;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.ConfigurationServiceProvider;
@@ -143,30 +141,6 @@ public class CalamariTraining extends CalamariServiceProviderWorker implements T
 	@Override
 	public float getVersion() {
 		return 1.0F;
-	}
-
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see de.uniwuerzburg.zpd.ocr4all.application.spi.core.ServiceProvider#
-	 * getCategories()
-	 */
-	@Override
-	public List<String> getCategories() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see
-	 * de.uniwuerzburg.zpd.ocr4all.application.spi.core.ServiceProvider#getSteps()
-	 */
-	@Override
-	public List<String> getSteps() {
-		// TODO Auto-generated method stub
-		return null;
 	}
 
 	/*
