@@ -38,7 +38,7 @@ public class CalamariTraining extends CalamariServiceProviderWorker implements T
 	 * @since 1.8
 	 */
 	private enum ServiceProviderCollection implements ConfigurationServiceProvider.CollectionKey {
-		processorIdentifier("training-id", "training"),
+		processorIdentifier("training-id", "calamari-training"),
 		processorDescription("training-description", "Calamari training processor");
 
 		/**
@@ -107,7 +107,7 @@ public class CalamariTraining extends CalamariServiceProviderWorker implements T
 	 * @since 17
 	 */
 	public CalamariTraining() {
-		super(CalamariTraining.class);
+		super(CalamariTraining.class, Type.training);
 	}
 
 	/*

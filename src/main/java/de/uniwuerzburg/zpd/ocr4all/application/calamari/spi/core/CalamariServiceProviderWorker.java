@@ -30,8 +30,12 @@ import de.uniwuerzburg.zpd.ocr4all.application.spi.env.MicroserviceArchitecture;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.Premise;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.Target;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.BooleanField;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.model.DecimalField;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.Entry;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.model.IntegerField;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.Model;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.model.SelectField;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.model.StringField;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.util.SystemProcess;
 
 /**
@@ -139,11 +143,6 @@ public abstract class CalamariServiceProviderWorker extends ServiceProviderCore 
 	private static final String schedulerControllerContextPath = apiContextPathVersion_1_0 + "scheduler/";
 
 	/**
-	 * The processor controller context path.
-	 */
-	private static final String processorControllerContextPath = apiContextPathVersion_1_0 + "processor/";
-
-	/**
 	 * The ping request mapping.
 	 */
 	public static final String pingRequestMapping = schedulerControllerContextPath + "ping";
@@ -154,25 +153,20 @@ public abstract class CalamariServiceProviderWorker extends ServiceProviderCore 
 	public static final String jobRequestMapping = schedulerControllerContextPath + "job/{id}";
 
 	/**
-	 * The system job request mapping.
-	 */
-	public static final String systemJobRequestMapping = processorControllerContextPath + "job/{id}";
-
-	/**
 	 * The expunge job request mapping.
 	 */
 	public static final String expungeJobRequestMapping = schedulerControllerContextPath + "expunge/{id}";
 
 	/**
-	 * The processor json description request mapping.
+	 * Defines types.
+	 *
+	 * @author <a href="mailto:herbert.baier@uni-wuerzburg.de">Herbert Baier</a>
+	 * @version 1.0
+	 * @since 17
 	 */
-	private static final String jsonDescriptionRequestMapping = processorControllerContextPath
-			+ "description/json/{processor}";
-
-	/**
-	 * The processor json execute request mapping.
-	 */
-	protected static final String executeRequestMapping = processorControllerContextPath + "execute";
+	protected enum Type {
+		evaluation, recognition, training
+	}
 
 	/**
 	 * The JSON object mapper.
@@ -186,6 +180,26 @@ public abstract class CalamariServiceProviderWorker extends ServiceProviderCore 
 	 * The logger.
 	 */
 	protected final org.slf4j.Logger logger;
+
+	/**
+	 * The type.
+	 */
+	private final Type type;
+
+	/**
+	 * The processor description request mapping.
+	 */
+	private final String descriptionRequestMapping;
+
+	/**
+	 * The processor json execute request mapping.
+	 */
+	protected final String executeRequestMapping;
+
+	/**
+	 * The system job request mapping.
+	 */
+	protected final String systemJobRequestMapping;
 
 	/**
 	 * The provider description.
@@ -206,12 +220,18 @@ public abstract class CalamariServiceProviderWorker extends ServiceProviderCore 
 	 * Default constructor for a calamari service provider worker.
 	 * 
 	 * @param logger The logger class.
+	 * @param type   The type.
 	 * @since 17
 	 */
-	public CalamariServiceProviderWorker(Class<?> logger) {
+	public CalamariServiceProviderWorker(Class<?> logger, Type type) {
 		super();
 
 		this.logger = org.slf4j.LoggerFactory.getLogger(logger);
+		this.type = type;
+
+		descriptionRequestMapping = apiContextPathVersion_1_0 + type.name() + "/description";
+		executeRequestMapping = apiContextPathVersion_1_0 + type.name() + "/execute";
+		systemJobRequestMapping = apiContextPathVersion_1_0 + type.name() + "/job/{id}";
 
 		long timeoutActiveProcessor;
 		try {
@@ -233,7 +253,7 @@ public abstract class CalamariServiceProviderWorker extends ServiceProviderCore 
 	 */
 	@Override
 	public String getProvider() {
-		return "calamari/" + getProcessorIdentifier();
+		return "calamari/" + type.name();
 	}
 
 	/*
@@ -250,10 +270,10 @@ public abstract class CalamariServiceProviderWorker extends ServiceProviderCore 
 
 	/**
 	 * Returns the service provider collection with key and default value for
-	 * processor identifier.
+	 * processor name.
 	 * 
 	 * @return The service provider collection with key and default value for
-	 *         processor identifier.
+	 *         processor name.
 	 * @since 1.8
 	 */
 	protected abstract ConfigurationServiceProvider.CollectionKey processorIdentifier();
@@ -303,13 +323,14 @@ public abstract class CalamariServiceProviderWorker extends ServiceProviderCore 
 		if (host == null)
 			throw new ProviderException("unknown host configuration for msa id " + hostId + ".");
 
-		restClient = RestClient.create(
-				configuration.getValue(ServiceProviderCollection.applicationLayerProtocol) + "://" + host.getUrl());
+		final String url = configuration.getValue(ServiceProviderCollection.applicationLayerProtocol) + "://"
+				+ host.getUrl();
+
+		restClient = RestClient.create(url);
 
 		try {
-			providerDescription = restClient.get().uri(jsonDescriptionRequestMapping, getProcessorIdentifier())
-					.accept(MediaType.APPLICATION_JSON).retrieve()
-					.onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
+			providerDescription = restClient.get().uri(descriptionRequestMapping).accept(MediaType.APPLICATION_JSON)
+					.retrieve().onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
 						throw new ProviderException("HTTP client error status " + response.getStatusCode() + " ("
 								+ response.getStatusText() + "): " + response.getHeaders());
 					}).onStatus(HttpStatusCode::is5xxServerError, (request, response) -> {
@@ -317,7 +338,8 @@ public abstract class CalamariServiceProviderWorker extends ServiceProviderCore 
 								+ response.getStatusText() + "): " + response.getHeaders());
 					}).body(DescriptionResponse.class);
 		} catch (Exception e) {
-			logger.warn("provider " + getProcessorIdentifier() + " could not be initialized - " + e.getMessage());
+			logger.warn(type.name() + "provider could not be initialized (" + url + "/" + descriptionRequestMapping
+					+ ") - " + e.getMessage());
 
 			throw e;
 		}
@@ -413,7 +435,7 @@ public abstract class CalamariServiceProviderWorker extends ServiceProviderCore 
 		} catch (ProviderException e) {
 			final String message = "trouble contacting ocrd msa - " + e.getMessage();
 
-			logger.warn(getProcessorIdentifier() + ": " + message);
+			logger.warn(type.name() + ": " + message);
 
 			return new Premise(Premise.State.block, locale -> message);
 		}
@@ -433,13 +455,54 @@ public abstract class CalamariServiceProviderWorker extends ServiceProviderCore 
 		else {
 			List<SortEntry> entries = new ArrayList<>();
 
-			for (de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.model.BooleanField entry : providerDescription
-					.getModel().getBooleans())
-				entries.add(
-						new SortEntry(entry.getIndex(), new BooleanField(entry.getArgument(), entry.getDefaultValue(),
-								(locale) -> entry.getLabel(), (locale) -> entry.getDescription(), entry.isDisabled())));
-			
-			// TODO: continue decimal, integer, select, string
+			if (providerDescription.getModel().getBooleans() != null)
+				for (de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.model.BooleanField entry : providerDescription
+						.getModel().getBooleans())
+					entries.add(new SortEntry(entry.getIndex(),
+							new BooleanField(entry.getArgument(), entry.getDefaultValue(), (locale) -> entry.getLabel(),
+									(locale) -> entry.getDescription(), entry.isDisabled())));
+
+			if (providerDescription.getModel().getDecimals() != null)
+				for (de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.model.DecimalField entry : providerDescription
+						.getModel().getDecimals())
+					entries.add(new SortEntry(entry.getIndex(),
+							new DecimalField(entry.getArgument(), entry.getDefaultValue(), (locale) -> entry.getLabel(),
+									(locale) -> entry.getDescription(), (locale) -> entry.getPlaceholder(),
+									entry.getStep(), entry.getMinimum(), entry.getMaximum(), null,
+									entry.isDisabled())));
+
+			if (providerDescription.getModel().getIntegers() != null)
+				for (de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.model.IntegerField entry : providerDescription
+						.getModel().getIntegers())
+					entries.add(new SortEntry(entry.getIndex(),
+							new IntegerField(entry.getArgument(), entry.getDefaultValue(), (locale) -> entry.getLabel(),
+									(locale) -> entry.getDescription(), (locale) -> entry.getPlaceholder(),
+									entry.getStep(), entry.getMinimum(), entry.getMaximum(), null,
+									entry.isDisabled())));
+
+			if (providerDescription.getModel().getStrings() != null)
+				for (de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.model.StringField entry : providerDescription
+						.getModel().getStrings())
+					entries.add(new SortEntry(entry.getIndex(),
+							new StringField(entry.getArgument(), entry.getDefaultValue(), (locale) -> entry.getLabel(),
+									(locale) -> entry.getDescription(), (locale) -> entry.getPlaceholder(),
+									entry.isDisabled())));
+
+			if (providerDescription.getModel().getSelects() != null)
+				for (de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.model.SelectField entry : providerDescription
+						.getModel().getSelects()) {
+
+					List<SelectField.Item> items = new ArrayList<>();
+					for (de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.model.SelectField.Item item : entry
+							.getItems())
+						items.add(new SelectField.Option(item.isSelected(), item.getValue(),
+								(locale) -> item.getDescription(), item.isDisabled()));
+
+					entries.add(new SortEntry(entry.getIndex(),
+							new SelectField(entry.getArgument(), (locale) -> entry.getLabel(),
+									(locale) -> entry.getDescription(), entry.isMultipleOptions(), items,
+									entry.isDisabled())));
+				}
 
 			return new Model(SortEntry.getSorted(entries));
 		}
