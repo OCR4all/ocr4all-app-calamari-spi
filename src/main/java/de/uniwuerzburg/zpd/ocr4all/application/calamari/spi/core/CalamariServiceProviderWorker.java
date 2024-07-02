@@ -34,6 +34,7 @@ import de.uniwuerzburg.zpd.ocr4all.application.spi.model.DecimalField;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.Entry;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.IntegerField;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.Model;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.model.RecognitionModelField;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.SelectField;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.StringField;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.util.SystemProcess;
@@ -503,6 +504,15 @@ public abstract class CalamariServiceProviderWorker extends ServiceProviderCore 
 									(locale) -> entry.getDescription(), entry.isMultipleOptions(), items,
 									entry.isDisabled())));
 				}
+
+			if (providerDescription.getModel().getRecognitionModels() != null)
+				for (de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.model.RecognitionModelField entry : providerDescription
+						.getModel().getRecognitionModels()) 
+					entries.add(new SortEntry(entry.getIndex(),
+							new RecognitionModelField(entry.getArgument(), (locale) -> entry.getLabel(),
+									(locale) -> entry.getDescription(), (locale) -> entry.getPlaceholder(),
+									RecognitionModelField.Type.Calamari, entry.getMinimumVersion(),
+									entry.getMaximumVersion(), entry.isMultipleModels(), entry.isDisabled())));
 
 			return new Model(SortEntry.getSorted(entries));
 		}
