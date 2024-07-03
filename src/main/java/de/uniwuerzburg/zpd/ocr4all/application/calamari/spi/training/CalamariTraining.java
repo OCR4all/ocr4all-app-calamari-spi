@@ -9,6 +9,7 @@ package de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.training;
 
 import de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.CalamariServiceProviderWorker;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.TrainingServiceProvider;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.core.ProcessorCore;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.ConfigurationServiceProvider;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.ConfigurationServiceProvider.CollectionKey;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.TrainingFramework;
@@ -162,7 +163,7 @@ public class CalamariTraining extends CalamariServiceProviderWorker implements T
 	 * newProcessor()
 	 */
 	@Override
-	public Processor<TrainingFramework> newProcessor() {
+	public Processor<ProcessorCore.Callback, TrainingFramework> newProcessor() {
 		// TODO Auto-generated method stub
 		return null;
 	}
