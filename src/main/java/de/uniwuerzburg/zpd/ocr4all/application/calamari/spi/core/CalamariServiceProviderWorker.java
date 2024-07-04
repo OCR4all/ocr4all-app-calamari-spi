@@ -23,12 +23,20 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.api.DescriptionResponse;
+import de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.api.ProcessRequest;
 import de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.core.Batch;
 import de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.core.BatchArgument;
+import de.uniwuerzburg.zpd.ocr4all.application.communication.message.spi.EventSPI;
+import de.uniwuerzburg.zpd.ocr4all.application.communication.msa.api.domain.JobResponse;
+import de.uniwuerzburg.zpd.ocr4all.application.communication.msa.api.domain.SystemJobResponse;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.core.MsaProcessorServiceProvider;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.core.ProcessorCore;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.core.ProcessorServiceProvider;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.core.ProcessorServiceProvider.Processor;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.core.ServiceProviderCore;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.ConfigurationServiceProvider;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.Dataset;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.env.Framework;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.MicroserviceArchitecture;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.Premise;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.Target;
@@ -44,6 +52,7 @@ import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.Argument;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.BooleanArgument;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.DecimalArgument;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.IntegerArgument;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.ModelArgument;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.RecognitionModelArgument;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.SelectArgument;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.StringArgument;
@@ -63,7 +72,8 @@ import de.uniwuerzburg.zpd.ocr4all.application.spi.util.SystemProcess;
  * @version 1.0
  * @since 17
  */
-public abstract class CalamariServiceProviderWorker extends ServiceProviderCore {
+public abstract class CalamariServiceProviderWorker<C extends ProcessorCore.Callback, F extends Framework, P extends ProcessRequest>
+		extends ServiceProviderCore {
 	/**
 	 * The collection name.
 	 */
@@ -167,6 +177,11 @@ public abstract class CalamariServiceProviderWorker extends ServiceProviderCore 
 	 * The expunge job request mapping.
 	 */
 	public static final String expungeJobRequestMapping = schedulerControllerContextPath + "expunge/{id}";
+
+	/**
+	 * The cancel job request mapping.
+	 */
+	public static final String cancelJobRequestMapping = "/cancel/{id}";
 
 	/**
 	 * Defines types.
@@ -529,16 +544,6 @@ public abstract class CalamariServiceProviderWorker extends ServiceProviderCore 
 	}
 
 	/**
-	 * Returns the provider description.
-	 *
-	 * @return The provider description.
-	 * @since 17
-	 */
-	protected DescriptionResponse getProviderDescription() {
-		return providerDescription;
-	}
-
-	/**
 	 * Returns the arguments select, string, integer, decimal and boolean with their
 	 * values for a system job process.
 	 *
@@ -653,7 +658,7 @@ public abstract class CalamariServiceProviderWorker extends ServiceProviderCore 
 			}
 		return items.isEmpty() ? null : new Batch(items);
 	}
-	
+
 	/**
 	 * Defines sort entries.
 	 *
@@ -733,6 +738,292 @@ public abstract class CalamariServiceProviderWorker extends ServiceProviderCore 
 
 			return list;
 		}
+	}
+
+	/**
+	 * Returns the process requests.
+	 * 
+	 * @param key           The job key.
+	 * @param framework     The framework for the processor.
+	 * @param modelArgument The models with their arguments.
+	 * @return The process requests.
+	 * @since 17
+	 */
+	protected abstract P getProcessRequest(String key, F framework, ModelArgument modelArgument);
+
+	/**
+	 * Returns a new processor for the Calamari service provider.
+	 * 
+	 * @return A new processor for the Calamari service provider.
+	 * @since 17
+	 */
+	protected Processor<C, F> newCalamaryProcessor() {
+		return providerDescription == null ? null
+				: new MsaProcessorServiceProvider<C, F>(microserviceArchitecture.getEventController()) {
+					/**
+					 * The timeout thread.
+					 */
+					private Thread thread = null;
+
+					/**
+					 * The job id. 0 if not set.
+					 */
+					private int jobId = 0;
+
+					/**
+					 * Logs the trouble.
+					 * 
+					 * @param message The trouble message.
+					 * @since 17
+					 */
+					private void logTrouble(String message) {
+						logger.warn(getProcessorIdentifier() + ": " + message);
+						updatedStandardError(message);
+					}
+
+					/**
+					 * Maps the msa job state to the execution process state and returns it. The msa
+					 * job has to be done.
+					 * 
+					 * @param state The msa job state.
+					 * @return The processor execution state.
+					 * @since 17
+					 */
+					private ProcessorCore.State map(
+							de.uniwuerzburg.zpd.ocr4all.application.communication.msa.job.State state) {
+						switch (state) {
+						case canceled:
+							return ProcessorCore.State.canceled;
+						case completed:
+							return complete();
+						case interrupted:
+						default:
+							return ProcessorCore.State.interrupted;
+						}
+
+					}
+
+					/*
+					 * (non-Javadoc)
+					 * 
+					 * @see de.uniwuerzburg.zpd.ocr4all.application.ocrd.spi.msa.
+					 * OCRDMsaProcessorServiceProvider#handle(de.uniwuerzburg.zpd.ocr4all.
+					 * application.communication.message.spi.EventSPI)
+					 */
+					@Override
+					protected void handle(EventSPI event) {
+						final String message = "received event " + event.getType().name() + " (" + event.getCreatedAt()
+								+ ") - " + event.getMessage();
+
+						logger.debug(getProcessorIdentifier() + ": " + message);
+
+						if (event.getType().equals(EventSPI.Type.interrupted))
+							updatedStandardError(message);
+						else
+							updatedStandardOutput(message);
+
+						if (thread != null && thread.isAlive() && !thread.isInterrupted())
+							thread.interrupt();
+					}
+
+					/*
+					 * (non-Javadoc)
+					 * 
+					 * @see
+					 * de.uniwuerzburg.zpd.ocr4all.application.spi.core.ProcessorServiceProvider.
+					 * Processor#execute(de.uniwuerzburg.zpd.ocr4all.application.spi.core.
+					 * ProcessorCore.Callback,
+					 * de.uniwuerzburg.zpd.ocr4all.application.spi.env.Framework,
+					 * de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.ModelArgument)
+					 */
+					@Override
+					public ProcessorCore.State execute(C callback, F framework, ModelArgument modelArgument) {
+						callback.updatedProgress(0.01F);
+
+						if (framework == null) {
+							updatedStandardError("undefined framework.");
+
+							return ProcessorCore.State.interrupted;
+						}
+
+						try {
+							ping();
+						} catch (ProviderException e) {
+							logTrouble("trouble contacting Calamari msa - " + e.getMessage());
+
+							return ProcessorCore.State.interrupted;
+						}
+
+						if (!initialize(getProcessorIdentifier(), callback, framework))
+							return ProcessorCore.State.canceled;
+
+						// register event handler
+						registerEventHandler();
+
+						P processRequest = getProcessRequest(key, framework, modelArgument);
+
+						logger.debug(getProcessorIdentifier() + ": process request - key " + key + ", arguments '"
+								+ processRequest.getArguments() + "'.");
+
+						callback.updatedProgress(0.02F);
+
+						// start the job
+						JobResponse jobResponse;
+						try {
+							jobResponse = restClient.post().uri(executeRequestMapping)
+									.contentType(MediaType.APPLICATION_JSON).body(processRequest)
+									.accept(MediaType.APPLICATION_JSON).retrieve()
+									.onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
+										throw new ProviderException(
+												"HTTP client error status " + response.getStatusCode() + " ("
+														+ response.getStatusText() + "): " + response.getHeaders());
+									}).onStatus(HttpStatusCode::is5xxServerError, (request, response) -> {
+										throw new ProviderException(
+												"HTTP server error status " + response.getStatusCode() + " ("
+														+ response.getStatusText() + "): " + response.getHeaders());
+									}).body(JobResponse.class);
+						} catch (Exception e) {
+							logTrouble("could not execute processor, key " + key + " - '" + e.getMessage());
+
+							return ProcessorCore.State.interrupted;
+						}
+
+						jobId = jobResponse.getId();
+
+						logger.debug(getProcessorIdentifier() + ": running job " + jobId + ", key " + key + ".");
+
+						// wait until the job is done
+						while (!jobResponse.getState().isDone()) {
+							thread = new Thread(() -> {
+								try {
+									logger.debug("thread wait: job " + jobId + ", key " + key + ".");
+
+									Thread.sleep(timeoutActiveProcessor);
+
+									logger.debug("thread timeout: job " + jobId + ", key " + key + ".");
+								} catch (InterruptedException e) {
+									logger.debug("thread interrupted by event: job " + jobId + ", key " + key + ".");
+								}
+							});
+
+							thread.start();
+
+							// Wait for a timeout or a new event
+							try {
+								thread.join();
+							} catch (InterruptedException e) {
+								// Nothing to do
+							}
+
+							// restore the current job status
+							try {
+								jobResponse = restClient.get().uri(jobRequestMapping, jobId)
+										.accept(MediaType.APPLICATION_JSON).retrieve()
+										.onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
+											throw new ProviderException(
+													"HTTP client error status " + response.getStatusCode() + " ("
+															+ response.getStatusText() + "): " + response.getHeaders());
+										}).onStatus(HttpStatusCode::is5xxServerError, (request, response) -> {
+											throw new ProviderException(
+													"HTTP server error status " + response.getStatusCode() + " ("
+															+ response.getStatusText() + "): " + response.getHeaders());
+										}).body(JobResponse.class);
+							} catch (Exception e) {
+								logTrouble(
+										"could not restore the job " + jobId + ", key " + key + " - " + e.getMessage());
+
+								return ProcessorCore.State.interrupted;
+							}
+						}
+
+						// job is done, unregister event handler
+						unregisterEventHandler();
+
+						// restore the system job information
+						try {
+							callback.updatedProgress(0.98F);
+							SystemJobResponse systemJobResponse = restClient.get().uri(systemJobRequestMapping, jobId)
+									.accept(MediaType.APPLICATION_JSON).retrieve()
+									.onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
+										throw new ProviderException(
+												"HTTP client error status " + response.getStatusCode() + " ("
+														+ response.getStatusText() + "): " + response.getHeaders());
+									}).onStatus(HttpStatusCode::is5xxServerError, (request, response) -> {
+										throw new ProviderException(
+												"HTTP server error status " + response.getStatusCode() + " ("
+														+ response.getStatusText() + "): " + response.getHeaders());
+									}).body(SystemJobResponse.class);
+
+							if (systemJobResponse.getStandardOutput() != null
+									&& !systemJobResponse.getStandardOutput().isBlank())
+								updatedStandardOutput(systemJobResponse.getStandardOutput());
+
+							if (systemJobResponse.getStandardError() != null
+									&& !systemJobResponse.getStandardError().isBlank())
+								updatedStandardError(systemJobResponse.getStandardError());
+
+							if (systemJobResponse.getExitValue() > 0)
+								updatedStandardError("processor exit code: " + systemJobResponse.getExitValue());
+
+							callback.updatedProgress(0.99F);
+							try {
+								restClient.get().uri(expungeJobRequestMapping, jobId).retrieve()
+										.onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
+											throw new ProviderException(
+													"HTTP client error status " + response.getStatusCode() + " ("
+															+ response.getStatusText() + "): " + response.getHeaders());
+										}).onStatus(HttpStatusCode::is5xxServerError, (request, response) -> {
+											throw new ProviderException(
+													"HTTP server error status " + response.getStatusCode() + " ("
+															+ response.getStatusText() + "): " + response.getHeaders());
+										}).toBodilessEntity();
+
+							} catch (Exception e) {
+								logTrouble(
+										"could not expunge the job " + jobId + ", key " + key + " - " + e.getMessage());
+							}
+
+							return map(systemJobResponse.getState());
+						} catch (Exception e) {
+							logTrouble("could not restore system information of the job " + jobId + ", key " + key
+									+ " - " + e.getMessage());
+
+							return map(jobResponse.getState());
+						}
+					}
+
+					/*
+					 * (non-Javadoc)
+					 * 
+					 * @see
+					 * de.uniwuerzburg.zpd.ocr4all.application.spi.core.CoreProcessorServiceProvider
+					 * #cancel()
+					 */
+					@Override
+					public void cancel() {
+						super.cancel();
+
+						if (jobId > 0)
+							try {
+								restClient.get().uri(cancelJobRequestMapping, jobId).retrieve()
+										.onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
+											throw new ProviderException(
+													"HTTP client error status " + response.getStatusCode() + " ("
+															+ response.getStatusText() + "): " + response.getHeaders());
+										}).onStatus(HttpStatusCode::is5xxServerError, (request, response) -> {
+											throw new ProviderException(
+													"HTTP server error status " + response.getStatusCode() + " ("
+															+ response.getStatusText() + "): " + response.getHeaders());
+										}).toBodilessEntity();
+
+							} catch (Exception e) {
+								logTrouble(
+										"could not cancel the job " + jobId + ", key " + key + " - " + e.getMessage());
+							}
+
+					}
+				};
+
 	}
 
 	/**
