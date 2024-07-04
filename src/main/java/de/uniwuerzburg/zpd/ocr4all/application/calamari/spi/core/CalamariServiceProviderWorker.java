@@ -23,9 +23,12 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.api.DescriptionResponse;
+import de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.core.Batch;
+import de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.core.BatchArgument;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.core.ProcessorServiceProvider;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.core.ServiceProviderCore;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.ConfigurationServiceProvider;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.env.Dataset;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.MicroserviceArchitecture;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.Premise;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.Target;
@@ -37,6 +40,13 @@ import de.uniwuerzburg.zpd.ocr4all.application.spi.model.Model;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.RecognitionModelField;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.SelectField;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.StringField;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.Argument;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.BooleanArgument;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.DecimalArgument;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.IntegerArgument;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.RecognitionModelArgument;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.SelectArgument;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.StringArgument;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.util.SystemProcess;
 
 /**
@@ -409,7 +419,7 @@ public abstract class CalamariServiceProviderWorker extends ServiceProviderCore 
 	 * @throws ProviderException Throws on HTTP request troubles.
 	 * @since 17
 	 */
-	private void ping() throws ProviderException {
+	protected void ping() throws ProviderException {
 		restClient.get().uri(pingRequestMapping).retrieve()
 				.onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
 					throw new ProviderException("HTTP client error status " + response.getStatusCode() + " ("
@@ -507,7 +517,7 @@ public abstract class CalamariServiceProviderWorker extends ServiceProviderCore 
 
 			if (providerDescription.getModel().getRecognitionModels() != null)
 				for (de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.model.RecognitionModelField entry : providerDescription
-						.getModel().getRecognitionModels()) 
+						.getModel().getRecognitionModels())
 					entries.add(new SortEntry(entry.getIndex(),
 							new RecognitionModelField(entry.getArgument(), (locale) -> entry.getLabel(),
 									(locale) -> entry.getDescription(), (locale) -> entry.getPlaceholder(),
@@ -518,6 +528,132 @@ public abstract class CalamariServiceProviderWorker extends ServiceProviderCore 
 		}
 	}
 
+	/**
+	 * Returns the provider description.
+	 *
+	 * @return The provider description.
+	 * @since 17
+	 */
+	protected DescriptionResponse getProviderDescription() {
+		return providerDescription;
+	}
+
+	/**
+	 * Returns the arguments select, string, integer, decimal and boolean with their
+	 * values for a system job process.
+	 *
+	 * @param arguments The arguments for the spi model.
+	 * @return The arguments select, string, integer, decimal and boolean with their
+	 *         values for a system job process.
+	 * @since 17
+	 */
+	protected List<String> getArguments(List<Argument> arguments) throws IllegalArgumentException {
+		List<String> list = new ArrayList<>();
+
+		if (arguments != null)
+			for (Argument argument : arguments)
+				if (argument instanceof SelectArgument select) {
+					if (select.getValues().isPresent()) {
+						List<String> values = select.getValues().get();
+
+						if (values.size() >= 1) {
+							list.add(select.getArgument());
+
+							for (String value : values)
+								list.add(value);
+						}
+					}
+				} else if (argument instanceof StringArgument string) {
+					if (string.getValue().isPresent()) {
+						list.add(string.getArgument());
+						list.add(string.getValue().get());
+					}
+
+				} else if (argument instanceof IntegerArgument integer) {
+					if (integer.getValue().isPresent()) {
+						list.add(integer.getArgument());
+						list.add("" + integer.getValue().get());
+
+					}
+				} else if (argument instanceof DecimalArgument decimal) {
+					if (decimal.getValue().isPresent()) {
+						list.add(decimal.getArgument());
+						list.add("" + (float) decimal.getValue().get());
+					}
+				} else if (argument instanceof BooleanArgument bool) {
+					if (bool.getValue().isPresent() && bool.getValue().get())
+						list.add(bool.getArgument());
+				}
+
+		return list;
+	}
+
+	/**
+	 * Returns the batch recognition model arguments.
+	 * 
+	 * @param arguments The arguments for the spi model.
+	 * @return The batch recognition model arguments.
+	 * @since 17
+	 */
+	protected List<BatchArgument> getBatchRecognitionModelArguments(List<Argument> arguments) {
+		List<BatchArgument> list = new ArrayList<>();
+
+		if (arguments != null)
+			for (Argument argument : arguments)
+				if (argument instanceof RecognitionModelArgument recognitionModel) {
+					if (recognitionModel.getAssembles().isPresent()) {
+						List<Batch.Item> items = new ArrayList<>();
+
+						for (RecognitionModelArgument.Assemble assemble : recognitionModel.getAssembles().get())
+							if (assemble != null) {
+								List<String> files = new ArrayList<>();
+
+								for (String model : assemble.getModels())
+									if (model != null && !model.isBlank())
+										files.add(model.trim());
+
+								if (!files.isEmpty())
+									items.add(new Batch.Item(assemble.getId(), files));
+							}
+
+						if (!items.isEmpty())
+							list.add(new BatchArgument(recognitionModel.getArgument(), items));
+					}
+				}
+
+		return list;
+	}
+
+	/**
+	 * Returns the batch for recognition model arguments.
+	 * 
+	 * @param arguments The arguments for the spi model.
+	 * @return The batch for recognition model arguments. Null if the dataset is
+	 *         empty.
+	 * @since 17
+	 */
+	protected Batch getBatch(Dataset dataset) {
+		List<Batch.Item> items = new ArrayList<>();
+
+		if (dataset != null && dataset.getCollections() != null)
+			for (Dataset.Collection collection : dataset.getCollections()) {
+				if (collection != null && collection.getId() != null && !collection.getId().isBlank()
+						&& collection.getSets() != null) {
+					List<String> files = new ArrayList<>();
+
+					for (Dataset.Collection.Set set : collection.getSets())
+						if (set != null && set.getId() != null && !set.getId().isBlank() && set.getImage() != null
+								&& !set.getImage().isBlank())
+							files.add(set.getId().trim() + "." + set.getImage().trim());
+
+					if (!files.isEmpty())
+						items.add(new Batch.Item(collection.getId().trim(), files));
+				}
+
+			}
+		return items.isEmpty() ? null : new Batch(items);
+	}
+	
 	/**
 	 * Defines sort entries.
 	 *
