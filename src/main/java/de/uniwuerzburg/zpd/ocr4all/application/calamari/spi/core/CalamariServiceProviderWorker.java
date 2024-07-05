@@ -537,7 +537,8 @@ public abstract class CalamariServiceProviderWorker<C extends ProcessorCore.Call
 							new RecognitionModelField(entry.getArgument(), (locale) -> entry.getLabel(),
 									(locale) -> entry.getDescription(), (locale) -> entry.getPlaceholder(),
 									RecognitionModelField.Type.Calamari, entry.getMinimumVersion(),
-									entry.getMaximumVersion(), entry.isMultipleModels(), entry.isDisabled())));
+									entry.getMaximumVersion(), entry.isMultipleModels(), entry.getSuffix(),
+									entry.isDisabled())));
 
 			return new Model(SortEntry.getSorted(entries));
 		}
@@ -752,6 +753,70 @@ public abstract class CalamariServiceProviderWorker<C extends ProcessorCore.Call
 	protected abstract P getProcessRequest(String key, F framework, ModelArgument modelArgument);
 
 	/**
+	 * Override this method to perform the desired logic after the process is
+	 * complete.
+	 * 
+	 * @param state         The process finish state.
+	 * @param framework     The framework for the processor.
+	 * @param modelArgument The models with their arguments.
+	 * @return The process state.
+	 * @throws Exception Thrown on conditions that the calling application catch and
+	 *                   logs.
+	 * @since 17
+	 */
+	protected ProcessorCore.State postProcessingCallback(ProcessorCore.State state, F framework,
+			ModelArgument modelArgument) throws Exception {
+		return state;
+	}
+
+	/**
+	 * Override this method to perform the desired logic after the process is
+	 * complete.
+	 * 
+	 * @param state         The process finish state.
+	 * @param framework     The framework for the processor.
+	 * @param modelArgument The models with their arguments.
+	 * @return The process state.
+	 * @since 17
+	 */
+	private ProcessorCore.State postProcessingCallback(
+			de.uniwuerzburg.zpd.ocr4all.application.communication.msa.job.State state, F framework,
+			ModelArgument modelArgument) {
+		ProcessorCore.State processState;
+
+		switch (state) {
+		case canceled:
+			processState = ProcessorCore.State.canceled;
+			break;
+		case completed:
+			processState = ProcessorCore.State.completed;
+			break;
+		case interrupted:
+		default:
+			processState = ProcessorCore.State.interrupted;
+		}
+
+		try {
+			processState = postProcessingCallback(processState, framework, modelArgument);
+		} catch (Exception e) {
+			logger.warn(
+					getProcessorIdentifier() + ": post processing callback performs with troubles - " + e.getMessage());
+		}
+
+		if (processState == null)
+			return ProcessorCore.State.interrupted;
+		else
+			switch (processState) {
+			case canceled:
+			case completed:
+				return processState;
+			case interrupted:
+			default:
+				return ProcessorCore.State.interrupted;
+			}
+	}
+
+	/**
 	 * Returns a new processor for the Calamari service provider.
 	 * 
 	 * @return A new processor for the Calamari service provider.
@@ -779,28 +844,6 @@ public abstract class CalamariServiceProviderWorker<C extends ProcessorCore.Call
 					private void logTrouble(String message) {
 						logger.warn(getProcessorIdentifier() + ": " + message);
 						updatedStandardError(message);
-					}
-
-					/**
-					 * Maps the msa job state to the execution process state and returns it. The msa
-					 * job has to be done.
-					 * 
-					 * @param state The msa job state.
-					 * @return The processor execution state.
-					 * @since 17
-					 */
-					private ProcessorCore.State map(
-							de.uniwuerzburg.zpd.ocr4all.application.communication.msa.job.State state) {
-						switch (state) {
-						case canceled:
-							return ProcessorCore.State.canceled;
-						case completed:
-							return complete();
-						case interrupted:
-						default:
-							return ProcessorCore.State.interrupted;
-						}
-
 					}
 
 					/*
@@ -983,12 +1026,12 @@ public abstract class CalamariServiceProviderWorker<C extends ProcessorCore.Call
 										"could not expunge the job " + jobId + ", key " + key + " - " + e.getMessage());
 							}
 
-							return map(systemJobResponse.getState());
+							return postProcessingCallback(systemJobResponse.getState(), framework, modelArgument);
 						} catch (Exception e) {
 							logTrouble("could not restore system information of the job " + jobId + ", key " + key
 									+ " - " + e.getMessage());
 
-							return map(jobResponse.getState());
+							return postProcessingCallback(jobResponse.getState(), framework, modelArgument);
 						}
 					}
 
