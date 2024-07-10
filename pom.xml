@@ -52,6 +52,14 @@
 			<scope>provided</scope>
 		</dependency>
 		
+		<!-- ocr4all application persistence -->
+		<dependency>
+			<groupId>de.uni-wuerzburg.zpd</groupId>
+			<artifactId>ocr4all-app-persistence</artifactId>
+			<version>${de.uni-wuerzburg.zpd.ocr4all.version}</version>
+			<scope>provided</scope>
+		</dependency>
+		
 		<!-- ocr4all application Calamari communication -->
 		<dependency>
 			<groupId>de.uni-wuerzburg.zpd</groupId>
