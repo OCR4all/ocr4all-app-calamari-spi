@@ -10,9 +10,11 @@ package de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.training;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.api.TrainingJobResponse;
 import de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.api.TrainingRequest;
 import de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.core.ModelConfiguration;
 import de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.CalamariServiceProviderWorker;
+import de.uniwuerzburg.zpd.ocr4all.application.communication.msa.api.domain.JobResponse;
 import de.uniwuerzburg.zpd.ocr4all.application.persistence.PersistenceManager;
 import de.uniwuerzburg.zpd.ocr4all.application.persistence.assemble.Engine;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.TrainingServiceProvider;
@@ -37,8 +39,8 @@ import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.ModelArgument;
  * @version 1.0
  * @since 17
  */
-public class CalamariTraining
-		extends CalamariServiceProviderWorker<ProcessorCore.Callback, TrainingFramework, TrainingRequest>
+public class CalamariTraining extends
+		CalamariServiceProviderWorker<ProcessorCore.Callback, TrainingFramework, TrainingRequest, TrainingJobResponse>
 		implements TrainingServiceProvider {
 
 	/**
@@ -119,7 +121,7 @@ public class CalamariTraining
 	 * @since 17
 	 */
 	public CalamariTraining() {
-		super(CalamariTraining.class, Type.training);
+		super(CalamariTraining.class, Type.training, TrainingJobResponse.class);
 	}
 
 	/*
@@ -166,6 +168,18 @@ public class CalamariTraining
 		return 100;
 	}
 
+	/**
+	 * Returns the engine configuration.
+	 * 
+	 * @param framework The framework for the processor.
+	 * @return The engine configuration.
+	 * @since 17
+	 */
+	private Path getEngineConfiguration(TrainingFramework framework) {
+		return Paths.get(framework.getAssemble().toString(), framework.getModelId(),
+				framework.getModelConfiguration().getFolder(), framework.getModelConfiguration().getEngine());
+	}
+
 	/*
 	 * (non-Javadoc)
 	 * 
@@ -177,11 +191,33 @@ public class CalamariTraining
 	@Override
 	protected TrainingRequest getProcessRequest(String key, TrainingFramework framework, ModelArgument modelArgument) {
 		final ModelConfiguration modelConfiguration = new ModelConfiguration(
-				framework.getModelConfiguration().getFolder(), framework.getModelConfiguration().getEngine());
+				framework.getModelConfiguration().getFolder());
 
 		return new TrainingRequest(key, getArguments(modelArgument.getArguments()),
 				getBatchRecognitionModelArguments(modelArgument.getArguments()), framework.getModelId(),
-				getBatch(framework.getDataset()), modelConfiguration, framework.getUser());
+				getBatch(framework.getDataset()), modelConfiguration);
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.
+	 * CalamariServiceProviderWorker#posExecuteCallback(de.uniwuerzburg.zpd.ocr4all.
+	 * application.communication.msa.api.domain.JobResponse,
+	 * de.uniwuerzburg.zpd.ocr4all.application.spi.env.Framework,
+	 * de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.ModelArgument)
+	 */
+	@Override
+	protected JobResponse posExecuteCallback(TrainingJobResponse job, TrainingFramework framework,
+			ModelArgument modelArgument) throws Exception {
+
+		Engine engine = job.getEngine();
+		engine.setUser(framework.getUser());
+
+		(new PersistenceManager(getEngineConfiguration(framework),
+				de.uniwuerzburg.zpd.ocr4all.application.persistence.Type.assemble_engine_v1)).persist(engine);
+
+		return job;
 	}
 
 	/*
@@ -196,8 +232,7 @@ public class CalamariTraining
 	@Override
 	protected State postProcessingCallback(State state, TrainingFramework framework, ModelArgument modelArgument)
 			throws Exception {
-		Path folder = Paths.get(framework.getAssemble().toString(), framework.getModelId(),
-				framework.getModelConfiguration().getFolder(), framework.getModelConfiguration().getEngine());
+		Path folder = getEngineConfiguration(framework);
 
 		PersistenceManager persistenceManager = new PersistenceManager(folder,
 				de.uniwuerzburg.zpd.ocr4all.application.persistence.Type.assemble_engine_v1);

@@ -45,17 +45,17 @@ import de.uniwuerzburg.zpd.ocr4all.application.spi.model.DecimalField;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.Entry;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.IntegerField;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.Model;
-import de.uniwuerzburg.zpd.ocr4all.application.spi.model.RecognitionModelField;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.SelectField;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.StringField;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.model.WeightField;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.Argument;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.BooleanArgument;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.DecimalArgument;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.IntegerArgument;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.ModelArgument;
-import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.RecognitionModelArgument;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.SelectArgument;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.StringArgument;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.WeightArgument;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.util.SystemProcess;
 
 /**
@@ -72,7 +72,7 @@ import de.uniwuerzburg.zpd.ocr4all.application.spi.util.SystemProcess;
  * @version 1.0
  * @since 17
  */
-public abstract class CalamariServiceProviderWorker<C extends ProcessorCore.Callback, F extends Framework, P extends ProcessRequest>
+public abstract class CalamariServiceProviderWorker<C extends ProcessorCore.Callback, F extends Framework, P extends ProcessRequest, J extends JobResponse>
 		extends ServiceProviderCore {
 	/**
 	 * The collection name.
@@ -213,6 +213,11 @@ public abstract class CalamariServiceProviderWorker<C extends ProcessorCore.Call
 	private final Type type;
 
 	/**
+	 * The job type.
+	 */
+	private final Class<J> jobType;;
+
+	/**
 	 * The processor description request mapping.
 	 */
 	private final String descriptionRequestMapping;
@@ -249,11 +254,12 @@ public abstract class CalamariServiceProviderWorker<C extends ProcessorCore.Call
 	 * @param type   The type.
 	 * @since 17
 	 */
-	public CalamariServiceProviderWorker(Class<?> logger, Type type) {
+	public CalamariServiceProviderWorker(Class<?> logger, Type type, Class<J> jobType) {
 		super();
 
 		this.logger = org.slf4j.LoggerFactory.getLogger(logger);
 		this.type = type;
+		this.jobType = jobType;
 
 		descriptionRequestMapping = apiContextPathVersion_1_0 + type.name() + "/description";
 		executeRequestMapping = apiContextPathVersion_1_0 + type.name() + "/execute";
@@ -530,15 +536,14 @@ public abstract class CalamariServiceProviderWorker<C extends ProcessorCore.Call
 									entry.isDisabled())));
 				}
 
-			if (providerDescription.getModel().getRecognitionModels() != null)
-				for (de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.model.RecognitionModelField entry : providerDescription
-						.getModel().getRecognitionModels())
+			if (providerDescription.getModel().getWeights() != null)
+				for (de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.model.WeightField entry : providerDescription
+						.getModel().getWeights())
 					entries.add(new SortEntry(entry.getIndex(),
-							new RecognitionModelField(entry.getArgument(), (locale) -> entry.getLabel(),
+							new WeightField(entry.getArgument(), (locale) -> entry.getLabel(),
 									(locale) -> entry.getDescription(), (locale) -> entry.getPlaceholder(),
-									RecognitionModelField.Type.Calamari, entry.getMinimumVersion(),
-									entry.getMaximumVersion(), entry.isMultipleModels(), entry.getSuffix(),
-									entry.isDisabled())));
+									WeightField.Type.Calamari, entry.getMinimumVersion(), entry.getMaximumVersion(),
+									entry.isMultipleSelect(), entry.getSuffix(), entry.isDisabled())));
 
 			return new Model(SortEntry.getSorted(entries));
 		}
@@ -606,11 +611,11 @@ public abstract class CalamariServiceProviderWorker<C extends ProcessorCore.Call
 
 		if (arguments != null)
 			for (Argument argument : arguments)
-				if (argument instanceof RecognitionModelArgument recognitionModel) {
+				if (argument instanceof WeightArgument recognitionModel) {
 					if (recognitionModel.getAssembles().isPresent()) {
 						List<Batch.Item> items = new ArrayList<>();
 
-						for (RecognitionModelArgument.Assemble assemble : recognitionModel.getAssembles().get())
+						for (WeightArgument.Assemble assemble : recognitionModel.getAssembles().get())
 							if (assemble != null) {
 								List<String> files = new ArrayList<>();
 
@@ -753,6 +758,79 @@ public abstract class CalamariServiceProviderWorker<C extends ProcessorCore.Call
 	protected abstract P getProcessRequest(String key, F framework, ModelArgument modelArgument);
 
 	/**
+	 * Override this method to perform the desired logic before the process start
+	 * execution.
+	 * 
+	 * @param framework     The framework for the processor.
+	 * @param modelArgument The models with their arguments.
+	 * @throws Exception Thrown on conditions that the calling application catch and
+	 *                   logs.
+	 * @since 17
+	 */
+	protected void preExecuteCallback(F framework, ModelArgument modelArgument) throws Exception {
+	}
+
+	/**
+	 * Performs the desired logic before the process start execution.
+	 * 
+	 * @param framework     The framework for the processor.
+	 * @param modelArgument The models with their arguments.
+	 * @param logTrouble    The callback method to log troubles.
+	 * @since 17
+	 */
+	private void preExecuteCallback(F framework, ModelArgument modelArgument, LogCallback logTrouble) {
+		try {
+			preExecuteCallback(framework, modelArgument);
+		} catch (Exception e) {
+			String message = getProcessorIdentifier() + ": pre execute callback performs with troubles - "
+					+ e.getMessage();
+
+			logger.warn(message);
+			logTrouble.log(message);
+		}
+	}
+
+	/**
+	 * Override this method to perform the desired logic after the process start
+	 * execution.
+	 * 
+	 * @param job           The job.
+	 * @param framework     The framework for the processor.
+	 * @param modelArgument The models with their arguments.
+	 * @return The job response.
+	 * @throws Exception Thrown on conditions that the calling application catch and
+	 *                   logs.
+	 * @since 17
+	 */
+	protected JobResponse posExecuteCallback(J job, F framework, ModelArgument modelArgument) throws Exception {
+		return job;
+	}
+
+	/**
+	 * Performs the desired logic after the process start execution.
+	 * 
+	 * @param job           The job.
+	 * @param framework     The framework for the processor.
+	 * @param modelArgument The models with their arguments.
+	 * @param logTrouble    The callback method to log troubles.
+	 * @return The job response.
+	 * @since 17
+	 */
+	private JobResponse posExecuteCallback(J job, F framework, ModelArgument modelArgument, LogCallback logTrouble) {
+		JobResponse processJob = job;
+		try {
+			processJob = posExecuteCallback(job, framework, modelArgument);
+		} catch (Exception e) {
+			String message = getProcessorIdentifier() + ": post execute callback performs with troubles - "
+					+ e.getMessage();
+
+			logger.warn(message);
+			logTrouble.log(message);
+		}
+		return processJob;
+	}
+
+	/**
 	 * Override this method to perform the desired logic after the process is
 	 * complete.
 	 * 
@@ -770,18 +848,18 @@ public abstract class CalamariServiceProviderWorker<C extends ProcessorCore.Call
 	}
 
 	/**
-	 * Override this method to perform the desired logic after the process is
-	 * complete.
+	 * Performs the desired logic after the process is complete.
 	 * 
 	 * @param state         The process finish state.
 	 * @param framework     The framework for the processor.
 	 * @param modelArgument The models with their arguments.
+	 * @param logTrouble    The callback method to log troubles.
 	 * @return The process state.
 	 * @since 17
 	 */
 	private ProcessorCore.State postProcessingCallback(
 			de.uniwuerzburg.zpd.ocr4all.application.communication.msa.job.State state, F framework,
-			ModelArgument modelArgument) {
+			ModelArgument modelArgument, LogCallback logTrouble) {
 		ProcessorCore.State processState;
 
 		switch (state) {
@@ -799,8 +877,11 @@ public abstract class CalamariServiceProviderWorker<C extends ProcessorCore.Call
 		try {
 			processState = postProcessingCallback(processState, framework, modelArgument);
 		} catch (Exception e) {
-			logger.warn(
-					getProcessorIdentifier() + ": post processing callback performs with troubles - " + e.getMessage());
+			String message = getProcessorIdentifier() + ": post processing callback performs with troubles - "
+					+ e.getMessage();
+
+			logger.warn(message);
+			logTrouble.log(message);
 		}
 
 		if (processState == null)
@@ -814,6 +895,24 @@ public abstract class CalamariServiceProviderWorker<C extends ProcessorCore.Call
 			default:
 				return ProcessorCore.State.interrupted;
 			}
+	}
+
+	/**
+	 * Defines callback for log.
+	 *
+	 * @author <a href="mailto:herbert.baier@uni-wuerzburg.de">Herbert Baier</a>
+	 * @version 1.0
+	 * @since 17
+	 */
+	@FunctionalInterface
+	private interface LogCallback {
+		/**
+		 * Logs the message.
+		 * 
+		 * @param message The message.
+		 * @since 17
+		 */
+		public void log(String message);
 	}
 
 	/**
@@ -843,6 +942,7 @@ public abstract class CalamariServiceProviderWorker<C extends ProcessorCore.Call
 					 */
 					private void logTrouble(String message) {
 						logger.warn(getProcessorIdentifier() + ": " + message);
+
 						updatedStandardError(message);
 					}
 
@@ -910,21 +1010,26 @@ public abstract class CalamariServiceProviderWorker<C extends ProcessorCore.Call
 
 						callback.updatedProgress(0.02F);
 
+						preExecuteCallback(framework, modelArgument, message -> logTrouble(message));
+
+						callback.updatedProgress(0.05F);
+
 						// start the job
 						JobResponse jobResponse;
 						try {
-							jobResponse = restClient.post().uri(executeRequestMapping)
-									.contentType(MediaType.APPLICATION_JSON).body(processRequest)
-									.accept(MediaType.APPLICATION_JSON).retrieve()
-									.onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
-										throw new ProviderException(
-												"HTTP client error status " + response.getStatusCode() + " ("
-														+ response.getStatusText() + "): " + response.getHeaders());
-									}).onStatus(HttpStatusCode::is5xxServerError, (request, response) -> {
-										throw new ProviderException(
-												"HTTP server error status " + response.getStatusCode() + " ("
-														+ response.getStatusText() + "): " + response.getHeaders());
-									}).body(JobResponse.class);
+							jobResponse = posExecuteCallback(
+									restClient.post().uri(executeRequestMapping).contentType(MediaType.APPLICATION_JSON)
+											.body(processRequest).accept(MediaType.APPLICATION_JSON).retrieve()
+											.onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
+												throw new ProviderException("HTTP client error status "
+														+ response.getStatusCode() + " (" + response.getStatusText()
+														+ "): " + response.getHeaders());
+											}).onStatus(HttpStatusCode::is5xxServerError, (request, response) -> {
+												throw new ProviderException("HTTP server error status "
+														+ response.getStatusCode() + " (" + response.getStatusText()
+														+ "): " + response.getHeaders());
+											}).body(jobType),
+									framework, modelArgument, message -> logTrouble(message));
 						} catch (Exception e) {
 							logTrouble("could not execute processor, key " + key + " - '" + e.getMessage());
 
@@ -1026,12 +1131,14 @@ public abstract class CalamariServiceProviderWorker<C extends ProcessorCore.Call
 										"could not expunge the job " + jobId + ", key " + key + " - " + e.getMessage());
 							}
 
-							return postProcessingCallback(systemJobResponse.getState(), framework, modelArgument);
+							return postProcessingCallback(systemJobResponse.getState(), framework, modelArgument,
+									message -> logTrouble(message));
 						} catch (Exception e) {
 							logTrouble("could not restore system information of the job " + jobId + ", key " + key
 									+ " - " + e.getMessage());
 
-							return postProcessingCallback(jobResponse.getState(), framework, modelArgument);
+							return postProcessingCallback(jobResponse.getState(), framework, modelArgument,
+									message -> logTrouble(message));
 						}
 					}
 
