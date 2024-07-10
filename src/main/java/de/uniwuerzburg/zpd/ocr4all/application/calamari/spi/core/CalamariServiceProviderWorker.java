@@ -638,7 +638,7 @@ public abstract class CalamariServiceProviderWorker<C extends ProcessorCore.Call
 	/**
 	 * Returns the batch for recognition model arguments.
 	 * 
-	 * @param arguments The arguments for the spi model.
+	 * @param dataset The dataset.
 	 * @return The batch for recognition model arguments. Null if the dataset is
 	 *         empty.
 	 * @since 17
