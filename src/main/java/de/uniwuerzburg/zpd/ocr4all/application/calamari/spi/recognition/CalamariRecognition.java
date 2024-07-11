@@ -1,0 +1,208 @@
+/**
+ * File:     CalamariRecognition.java
+ * Package:  de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.recognition
+ * 
+ * Author:   Herbert Baier (herbert.baier@uni-wuerzburg.de)
+ * Date:     11.07.2024
+ */
+package de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.recognition;
+
+import de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.api.RecognitionJobResponse;
+import de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.api.RecognitionRequest;
+import de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.CalamariServiceProviderWorker;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.OpticalCharacterRecognitionServiceProvider;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.core.ProcessorCore;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.core.ProcessorCore.State;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.env.ConfigurationServiceProvider;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.env.ConfigurationServiceProvider.CollectionKey;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.env.ProcessFramework;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.ModelArgument;
+
+/**
+ * Defines service providers for the Calamari recognition processor. The
+ * following properties of the service provider collection <b>calamari</b>
+ * override the local default settings (<b>key</b>: <i>default value</i>):
+ * <ul>
+ * <li>recognition-id: recognition</li>
+ * <li>recognition-description: Calamari recognition processor</li>
+ * <li>see {@link CalamariServiceProviderWorker} for remainder settings</li>
+ * </ul>
+ *
+ * @author <a href="mailto:herbert.baier@uni-wuerzburg.de">Herbert Baier</a>
+ * @version 1.0
+ * @since 17
+ */
+public class CalamariRecognition extends
+		CalamariServiceProviderWorker<ProcessorCore.LockSnapshotCallback, ProcessFramework, RecognitionRequest, RecognitionJobResponse>
+		implements OpticalCharacterRecognitionServiceProvider {
+
+	/**
+	 * Defines service provider collection with keys and default values. Collection
+	 * blank values are not allowed and their values are trimmed.
+	 *
+	 * @author <a href="mailto:herbert.baier@uni-wuerzburg.de">Herbert Baier</a>
+	 * @version 1.0
+	 * @since 1.8
+	 */
+	private enum ServiceProviderCollection implements ConfigurationServiceProvider.CollectionKey {
+		processorIdentifier("recognition-id", "calamari-predict"),
+		processorDescription("recognition-description", "Calamari recognition (predict) processor");
+
+		/**
+		 * The key.
+		 */
+		private final String key;
+
+		/**
+		 * The default value.
+		 */
+		private final String defaultValue;
+
+		/**
+		 * Creates a service provider collection with a key and default value.
+		 * 
+		 * @param key          The key.
+		 * @param defaultValue The default value.
+		 * @since 1.8
+		 */
+		private ServiceProviderCollection(String key, String defaultValue) {
+			this.key = key;
+			this.defaultValue = defaultValue;
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see
+		 * de.uniwuerzburg.zpd.ocr4all.application.spi.env.ConfigurationServiceProvider.
+		 * CollectionKey#getName()
+		 */
+		@Override
+		public String getName() {
+			return collectionName;
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see
+		 * de.uniwuerzburg.zpd.ocr4all.application.spi.env.ConfigurationServiceProvider.
+		 * CollectionKey#getKey()
+		 */
+		@Override
+		public String getKey() {
+			return key;
+		}
+
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see
+		 * de.uniwuerzburg.zpd.ocr4all.application.spi.env.ConfigurationServiceProvider.
+		 * CollectionKey#getDefaultValue()
+		 */
+		@Override
+		public String getDefaultValue() {
+			return defaultValue;
+		}
+	}
+
+	/**
+	 * Default constructor for a service providers for the Calamari recognition
+	 * processor.
+	 * 
+	 * @since 17
+	 */
+	public CalamariRecognition() {
+		super(CalamariRecognition.class, Type.recognition, RecognitionJobResponse.class);
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.
+	 * CalamariServiceProviderWorker#processorIdentifier()
+	 */
+	@Override
+	protected CollectionKey processorIdentifier() {
+		return ServiceProviderCollection.processorIdentifier;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.
+	 * CalamariServiceProviderWorker#processorDescription()
+	 */
+	@Override
+	protected CollectionKey processorDescription() {
+		return ServiceProviderCollection.processorDescription;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * de.uniwuerzburg.zpd.ocr4all.application.spi.core.ServiceProvider#getVersion()
+	 */
+	@Override
+	public float getVersion() {
+		return 1.0F;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * de.uniwuerzburg.zpd.ocr4all.application.spi.core.ServiceProvider#getIndex()
+	 */
+	@Override
+	public int getIndex() {
+		return 100;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.
+	 * CalamariServiceProviderWorker#getProcessRequest(java.lang.String,
+	 * de.uniwuerzburg.zpd.ocr4all.application.spi.env.Framework,
+	 * de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.ModelArgument)
+	 */
+	@Override
+	protected RecognitionRequest getProcessRequest(String key, ProcessFramework framework,
+			ModelArgument modelArgument) {
+		return new RecognitionRequest(key, getArguments(modelArgument.getArguments()),
+				getBatchRecognitionModelArguments(modelArgument.getArguments()),
+				framework.getOutputRelativeProjects().toString());
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.
+	 * CalamariServiceProviderWorker#preExecuteCallback(de.uniwuerzburg.zpd.ocr4all.
+	 * application.spi.env.Framework,
+	 * de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.ModelArgument)
+	 */
+	@Override
+	protected void preExecuteCallback(ProcessFramework framework, ModelArgument modelArgument) throws Exception {
+		// TODO Copy files
+		// TODO update mets like LAREX
+		
+		
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see
+	 * de.uniwuerzburg.zpd.ocr4all.application.spi.core.ProcessorServiceProvider#
+	 * newProcessor()
+	 */
+	@Override
+	public Processor<ProcessorCore.LockSnapshotCallback, ProcessFramework> newProcessor() {
+		return newCalamaryProcessor();
+	}
+
+}
