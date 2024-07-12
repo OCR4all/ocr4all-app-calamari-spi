@@ -25,8 +25,8 @@ import de.uniwuerzburg.zpd.ocr4all.application.spi.env.ConfigurationServiceProvi
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.ConfigurationServiceProvider.CollectionKey;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.ProcessFramework;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.ModelArgument;
-import de.uniwuerzburg.zpd.ocr4all.application.spi.util.MetsParser;
-import de.uniwuerzburg.zpd.ocr4all.application.spi.util.MetsUtils;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.util.mets.MetsParser;
+import de.uniwuerzburg.zpd.ocr4all.application.spi.util.mets.MetsUtils;
 
 /**
  * Defines service providers for the Calamari recognition processor. The
