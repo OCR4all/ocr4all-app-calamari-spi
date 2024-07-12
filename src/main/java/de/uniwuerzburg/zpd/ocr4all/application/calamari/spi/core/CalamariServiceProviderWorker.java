@@ -747,7 +747,7 @@ public abstract class CalamariServiceProviderWorker<C extends ProcessorCore.Call
 	}
 
 	/**
-	 * Returns the process requests.
+	 * Returns the process request.
 	 * 
 	 * @param key           The job key.
 	 * @param framework     The framework for the processor.
@@ -761,26 +761,29 @@ public abstract class CalamariServiceProviderWorker<C extends ProcessorCore.Call
 	 * Override this method to perform the desired logic before the process start
 	 * execution.
 	 * 
-	 * @param framework     The framework for the processor.
-	 * @param modelArgument The models with their arguments.
+	 * @param framework      The framework for the processor.
+	 * @param modelArgument  The models with their arguments.
+	 * @param processRequest The process request.
 	 * @throws Exception Thrown on conditions that the calling application catch and
 	 *                   logs.
 	 * @since 17
 	 */
-	protected void preExecuteCallback(F framework, ModelArgument modelArgument) throws Exception {
+	protected void preExecuteCallback(F framework, ModelArgument modelArgument, P processRequest) throws Exception {
 	}
 
 	/**
 	 * Performs the desired logic before the process start execution.
 	 * 
-	 * @param framework     The framework for the processor.
-	 * @param modelArgument The models with their arguments.
-	 * @param logTrouble    The callback method to log troubles.
+	 * @param framework      The framework for the processor.
+	 * @param modelArgument  The models with their arguments.
+	 * @param processRequest The process request.
+	 * @param logTrouble     The callback method to log troubles.
 	 * @since 17
 	 */
-	private void preExecuteCallback(F framework, ModelArgument modelArgument, LogCallback logTrouble) {
+	private void preExecuteCallback(F framework, ModelArgument modelArgument, P processRequest,
+			LogCallback logTrouble) {
 		try {
-			preExecuteCallback(framework, modelArgument);
+			preExecuteCallback(framework, modelArgument, processRequest);
 		} catch (Exception e) {
 			String message = getProcessorIdentifier() + ": pre execute callback performs with troubles - "
 					+ e.getMessage();
@@ -1010,7 +1013,7 @@ public abstract class CalamariServiceProviderWorker<C extends ProcessorCore.Call
 
 						callback.updatedProgress(0.02F);
 
-						preExecuteCallback(framework, modelArgument, message -> logTrouble(message));
+						preExecuteCallback(framework, modelArgument, processRequest, message -> logTrouble(message));
 
 						callback.updatedProgress(0.05F);
 
