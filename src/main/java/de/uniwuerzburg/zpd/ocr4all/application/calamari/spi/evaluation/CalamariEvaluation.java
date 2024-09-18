@@ -17,7 +17,6 @@ import de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.CalamariService
 import de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.CalamariServiceProviderWorker;
 import de.uniwuerzburg.zpd.ocr4all.application.communication.action.EvaluationMeasure;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.ActionServiceProvider;
-import de.uniwuerzburg.zpd.ocr4all.application.spi.core.ProcessorCore;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.ConfigurationServiceProvider;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.ConfigurationServiceProvider.CollectionKey;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.Database;
@@ -184,12 +183,13 @@ public class CalamariEvaluation extends CalamariServiceProviderWorker implements
 			 */
 			@Override
 			public String execute(Database database, ModelArgument modelArgument) {
-				EvaluationRequest evaluationRequest = new EvaluationRequest(getArguments(modelArgument.getArguments()));
+				EvaluationRequest evaluationRequest = new EvaluationRequest(database.getName(),
+						getArguments(modelArgument.getArguments()));
 
+				EvaluationMeasure evaluation;
 				try {
-					EvaluationMeasure evaluation = restClient.post().uri(executeRequestMapping)
-							.contentType(MediaType.APPLICATION_JSON).body(evaluationRequest)
-							.accept(MediaType.APPLICATION_JSON).retrieve()
+					evaluation = restClient.post().uri(executeRequestMapping).contentType(MediaType.APPLICATION_JSON)
+							.body(evaluationRequest).accept(MediaType.APPLICATION_JSON).retrieve()
 							.onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
 								throw new ProviderException("HTTP client error status " + response.getStatusCode()
 										+ " (" + response.getStatusText() + "): " + response.getHeaders());
@@ -198,12 +198,18 @@ public class CalamariEvaluation extends CalamariServiceProviderWorker implements
 										+ " (" + response.getStatusText() + "): " + response.getHeaders());
 							}).body(EvaluationMeasure.class);
 				} catch (Exception e) {
-					logTrouble("could not execute processor - " + e.getMessage());
+					String message = getProcessorIdentifier() + ": " + "could not execute processor - "
+							+ e.getMessage();
 
-					return ProcessorCore.State.interrupted;
+					evaluation = new EvaluationMeasure(EvaluationMeasure.State.interrupted, message);
+					logger.warn(message);
 				}
 
-				return null;
+				try {
+					return objectMapper.writeValueAsString(evaluation);
+				} catch (Exception e) {
+					return null;
+				}
 			}
 		};
 	}
