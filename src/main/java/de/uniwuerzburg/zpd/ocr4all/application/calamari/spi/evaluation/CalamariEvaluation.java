@@ -16,6 +16,7 @@ import de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.api.Evalua
 import de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.CalamariServiceProviderProcessorWorker;
 import de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.CalamariServiceProviderWorker;
 import de.uniwuerzburg.zpd.ocr4all.application.communication.action.EvaluationMeasure;
+import de.uniwuerzburg.zpd.ocr4all.application.communication.spi.ServiceProviderTask;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.ActionServiceProvider;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.ConfigurationServiceProvider;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.ConfigurationServiceProvider.CollectionKey;
@@ -182,7 +183,7 @@ public class CalamariEvaluation extends CalamariServiceProviderWorker implements
 			 * de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.ModelArgument)
 			 */
 			@Override
-			public String execute(Database database, ModelArgument modelArgument) {
+			public ServiceProviderTask execute(Database database, ModelArgument modelArgument) {
 				EvaluationRequest evaluationRequest = new EvaluationRequest(database.getName(),
 						getArguments(modelArgument.getArguments()));
 
@@ -198,18 +199,13 @@ public class CalamariEvaluation extends CalamariServiceProviderWorker implements
 										+ " (" + response.getStatusText() + "): " + response.getHeaders());
 							}).body(EvaluationMeasure.class);
 				} catch (Exception e) {
-					String message = getProcessorIdentifier() + ": " + "could not execute processor - "
-							+ e.getMessage();
-
-					evaluation = new EvaluationMeasure(EvaluationMeasure.State.interrupted, message);
-					logger.warn(message);
+					evaluation = new EvaluationMeasure(EvaluationMeasure.State.interrupted, e);
+					
+					logger.warn(getProcessorIdentifier() + ": " + "could not execute processor - "
+							+ e.getMessage());
 				}
 
-				try {
-					return objectMapper.writeValueAsString(evaluation);
-				} catch (Exception e) {
-					return null;
-				}
+				return evaluation;
 			}
 		};
 	}
