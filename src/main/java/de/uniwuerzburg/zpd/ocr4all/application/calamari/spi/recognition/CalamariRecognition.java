@@ -20,7 +20,7 @@ import java.util.Set;
 
 import de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.api.RecognitionJobResponse;
 import de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.api.RecognitionRequest;
-import de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.CalamariServiceProviderWorker;
+import de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.CalamariServiceProviderProcessorWorker;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.OpticalCharacterRecognitionServiceProvider;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.core.ProcessorCore;
 import de.uniwuerzburg.zpd.ocr4all.application.spi.env.ConfigurationServiceProvider;
@@ -39,7 +39,9 @@ import de.uniwuerzburg.zpd.ocr4all.application.spi.util.mets.MetsUtils;
  * <ul>
  * <li>recognition-id: recognition</li>
  * <li>recognition-description: Calamari recognition processor</li>
- * <li>see {@link CalamariServiceProviderWorker} for remainder settings</li>
+ * <li>recognition-mets-other-role: Calamari recognition mets other role</li>
+ * <li>see {@link CalamariServiceProviderProcessorWorker} for remainder
+ * settings</li>
  * </ul>
  *
  * @author <a href="mailto:herbert.baier@uni-wuerzburg.de">Herbert Baier</a>
@@ -47,7 +49,7 @@ import de.uniwuerzburg.zpd.ocr4all.application.spi.util.mets.MetsUtils;
  * @since 17
  */
 public class CalamariRecognition extends
-		CalamariServiceProviderWorker<ProcessorCore.LockSnapshotCallback, ProcessFramework, RecognitionRequest, RecognitionJobResponse>
+		CalamariServiceProviderProcessorWorker<ProcessorCore.LockSnapshotCallback, ProcessFramework, RecognitionRequest, RecognitionJobResponse>
 		implements OpticalCharacterRecognitionServiceProvider {
 
 	/**
@@ -136,7 +138,7 @@ public class CalamariRecognition extends
 	 * (non-Javadoc)
 	 * 
 	 * @see de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.
-	 * CalamariServiceProviderWorker#processorIdentifier()
+	 * CalamariServiceProviderProcessorWorker#processorIdentifier()
 	 */
 	@Override
 	protected CollectionKey processorIdentifier() {
@@ -147,7 +149,7 @@ public class CalamariRecognition extends
 	 * (non-Javadoc)
 	 * 
 	 * @see de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.
-	 * CalamariServiceProviderWorker#processorDescription()
+	 * CalamariServiceProviderProcessorWorker#processorDescription()
 	 */
 	@Override
 	protected CollectionKey processorDescription() {
@@ -180,7 +182,7 @@ public class CalamariRecognition extends
 	 * (non-Javadoc)
 	 * 
 	 * @see de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.
-	 * CalamariServiceProviderWorker#getProcessRequest(java.lang.String,
+	 * CalamariServiceProviderProcessorWorker#getProcessRequest(java.lang.String,
 	 * de.uniwuerzburg.zpd.ocr4all.application.spi.env.Framework,
 	 * de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.ModelArgument)
 	 */
@@ -196,8 +198,8 @@ public class CalamariRecognition extends
 	 * (non-Javadoc)
 	 * 
 	 * @see de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.
-	 * CalamariServiceProviderWorker#preExecuteCallback(de.uniwuerzburg.zpd.ocr4all.
-	 * application.spi.env.Framework,
+	 * CalamariServiceProviderProcessorWorker#preExecuteCallback(de.uniwuerzburg.zpd
+	 * .ocr4all. application.spi.env.Framework,
 	 * de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.ModelArgument,
 	 * de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.api.
 	 * ProcessRequest)

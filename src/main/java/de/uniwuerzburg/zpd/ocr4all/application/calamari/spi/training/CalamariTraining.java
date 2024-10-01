@@ -13,7 +13,7 @@ import java.nio.file.Paths;
 import de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.api.TrainingJobResponse;
 import de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.api.TrainingRequest;
 import de.uniwuerzburg.zpd.ocr4all.application.calamari.communication.core.ModelConfiguration;
-import de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.CalamariServiceProviderWorker;
+import de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.CalamariServiceProviderProcessorWorker;
 import de.uniwuerzburg.zpd.ocr4all.application.communication.msa.api.domain.JobResponse;
 import de.uniwuerzburg.zpd.ocr4all.application.persistence.PersistenceManager;
 import de.uniwuerzburg.zpd.ocr4all.application.persistence.assemble.Engine;
@@ -32,7 +32,8 @@ import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.ModelArgument;
  * <ul>
  * <li>training-id: training</li>
  * <li>training-description: Calamari training processor</li>
- * <li>see {@link CalamariServiceProviderWorker} for remainder settings</li>
+ * <li>see {@link CalamariServiceProviderProcessorWorker} for remainder
+ * settings</li>
  * </ul>
  *
  * @author <a href="mailto:herbert.baier@uni-wuerzburg.de">Herbert Baier</a>
@@ -40,7 +41,7 @@ import de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.ModelArgument;
  * @since 17
  */
 public class CalamariTraining extends
-		CalamariServiceProviderWorker<ProcessorCore.Callback, TrainingFramework, TrainingRequest, TrainingJobResponse>
+		CalamariServiceProviderProcessorWorker<ProcessorCore.Callback, TrainingFramework, TrainingRequest, TrainingJobResponse>
 		implements TrainingServiceProvider {
 
 	/**
@@ -128,7 +129,7 @@ public class CalamariTraining extends
 	 * (non-Javadoc)
 	 * 
 	 * @see de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.
-	 * CalamariServiceProviderWorker#processorIdentifier()
+	 * CalamariServiceProviderProcessorWorker#processorIdentifier()
 	 */
 	@Override
 	protected CollectionKey processorIdentifier() {
@@ -139,7 +140,7 @@ public class CalamariTraining extends
 	 * (non-Javadoc)
 	 * 
 	 * @see de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.
-	 * CalamariServiceProviderWorker#processorDescription()
+	 * CalamariServiceProviderProcessorWorker#processorDescription()
 	 */
 	@Override
 	protected CollectionKey processorDescription() {
@@ -184,7 +185,7 @@ public class CalamariTraining extends
 	 * (non-Javadoc)
 	 * 
 	 * @see de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.
-	 * CalamariServiceProviderWorker#getProcessRequest(java.lang.String,
+	 * CalamariServiceProviderProcessorWorker#getProcessRequest(java.lang.String,
 	 * de.uniwuerzburg.zpd.ocr4all.application.spi.env.Framework,
 	 * de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.ModelArgument)
 	 */
@@ -202,8 +203,8 @@ public class CalamariTraining extends
 	 * (non-Javadoc)
 	 * 
 	 * @see de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.
-	 * CalamariServiceProviderWorker#posExecuteCallback(de.uniwuerzburg.zpd.ocr4all.
-	 * application.communication.msa.api.domain.JobResponse,
+	 * CalamariServiceProviderProcessorWorker#posExecuteCallback(de.uniwuerzburg.zpd
+	 * .ocr4all. application.communication.msa.api.domain.JobResponse,
 	 * de.uniwuerzburg.zpd.ocr4all.application.spi.env.Framework,
 	 * de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.ModelArgument)
 	 */
@@ -224,8 +225,8 @@ public class CalamariTraining extends
 	 * (non-Javadoc)
 	 * 
 	 * @see de.uniwuerzburg.zpd.ocr4all.application.calamari.spi.core.
-	 * CalamariServiceProviderWorker#postProcessingCallback(de.uniwuerzburg.zpd.
-	 * ocr4all.application.spi.core.ProcessorCore.State,
+	 * CalamariServiceProviderProcessorWorker#postProcessingCallback(de.uniwuerzburg
+	 * .zpd. ocr4all.application.spi.core.ProcessorCore.State,
 	 * de.uniwuerzburg.zpd.ocr4all.application.spi.env.Framework,
 	 * de.uniwuerzburg.zpd.ocr4all.application.spi.model.argument.ModelArgument)
 	 */
